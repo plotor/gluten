@@ -6,6 +6,7 @@
     <artifactId>gluten-parent</artifactId>
     <groupId>io.glutenproject</groupId>
     <version>1.1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
@@ -35,9 +36,10 @@
     </dependency>
     <dependency>
       <groupId>io.glutenproject</groupId>
-      <artifactId>${sparkshim.artifactId}</artifactId>
+      <!--<artifactId>${sparkshim.artifactId}</artifactId>-->
+      <artifactId>spark-sql-columnar-shims-spark33</artifactId>
       <version>${project.version}</version>
-      <scope>compile</scope>
+      <!--<scope>compile</scope>-->
     </dependency>
     <!-- Prevent our dummy JAR from being included in Spark distributions or uploaded to YARN -->
     <dependency>
@@ -251,6 +253,25 @@
       </resource>
     </resources>
     <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>add-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>src/main/java</source>
+                <source>src/main/scala</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>

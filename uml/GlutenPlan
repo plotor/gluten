@@ -1,0 +1,84 @@
+classDiagram
+direction BT
+class BasicScanExecTransformer {
+<<Interface>>
+
+}
+class BatchScanExecTransformer
+class BroadcastHashJoinExecTransformer
+class CoalesceExecTransformer
+class ColumnarAQEShuffleReadExec
+class ColumnarBroadcastExchangeExec
+class ColumnarInMemoryTableScanExec
+class ColumnarShuffleExchangeExec
+class ColumnarSubqueryBroadcastExec
+class ColumnarToRowExecBase
+class EvalPythonExecTransformer
+class ExpandExecTransformer
+class FakeRowAdaptor
+class FileSourceScanExecTransformer
+class FilterExecTransformer
+class FilterExecTransformerBase
+class GenerateExecTransformer
+class GlutenBroadcastHashJoinExecTransformer
+class GlutenPlan {
+<<Interface>>
+
+}
+class HashAggregateExecBaseTransformer
+class HashAggregateExecTransformer
+class HashJoinLikeExecTransformer {
+<<Interface>>
+
+}
+class HiveTableScanExecTransformer
+class LimitTransformer
+class ProjectExecTransformer
+class RowToColumnarExecBase
+class RowToVeloxColumnarExec
+class ShuffledHashJoinExecTransformer
+class ShuffledHashJoinExecTransformerBase
+class SortExecTransformer
+class SortMergeJoinExecTransformer
+class TakeOrderedAndProjectExecTransformer
+class TransformSupport {
+<<Interface>>
+
+}
+class UnionExecTransformer
+class VeloxColumnarToRowExec
+class WholeStageTransformer
+class WindowExecTransformer
+
+BasicScanExecTransformer  -->  TransformSupport 
+BatchScanExecTransformer  ..>  BasicScanExecTransformer 
+BroadcastHashJoinExecTransformer  ..>  HashJoinLikeExecTransformer 
+CoalesceExecTransformer  ..>  TransformSupport 
+ColumnarAQEShuffleReadExec  ..>  GlutenPlan 
+ColumnarBroadcastExchangeExec  ..>  GlutenPlan 
+ColumnarInMemoryTableScanExec  ..>  GlutenPlan 
+ColumnarShuffleExchangeExec  ..>  GlutenPlan 
+ColumnarSubqueryBroadcastExec  ..>  GlutenPlan 
+ColumnarToRowExecBase  ..>  GlutenPlan 
+EvalPythonExecTransformer  ..>  TransformSupport 
+ExpandExecTransformer  ..>  TransformSupport 
+FakeRowAdaptor  ..>  GlutenPlan 
+FileSourceScanExecTransformer  ..>  BasicScanExecTransformer 
+FilterExecTransformer  ..>  TransformSupport 
+FilterExecTransformerBase  ..>  TransformSupport 
+GenerateExecTransformer  ..>  TransformSupport 
+HashAggregateExecBaseTransformer  ..>  TransformSupport 
+HashJoinLikeExecTransformer  -->  TransformSupport 
+HiveTableScanExecTransformer  ..>  BasicScanExecTransformer 
+LimitTransformer  ..>  TransformSupport 
+ProjectExecTransformer  ..>  TransformSupport 
+RowToColumnarExecBase  ..>  GlutenPlan 
+ShuffledHashJoinExecTransformerBase  ..>  HashJoinLikeExecTransformer 
+SortExecTransformer  ..>  GlutenPlan 
+SortExecTransformer  ..>  TransformSupport 
+SortMergeJoinExecTransformer  ..>  TransformSupport 
+TakeOrderedAndProjectExecTransformer  ..>  GlutenPlan 
+TransformSupport  -->  GlutenPlan 
+UnionExecTransformer  ..>  GlutenPlan 
+WholeStageTransformer  ..>  TransformSupport 
+WindowExecTransformer  ..>  TransformSupport 

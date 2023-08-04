@@ -30,7 +30,7 @@ import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.execution.{joins, JoinSelectionShim, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.{BroadcastQueryStageExec, LogicalQueryStage}
-import org.apache.spark.sql.execution.joins.BroadcastHashJoinExec
+import org.apache.spark.sql.execution.joins.BroadcastHashJoinExec;
 
 object StrategyOverrides extends GlutenSparkExtensionsInjector {
   override def inject(extensions: SparkSessionExtensions): Unit = {
@@ -187,12 +187,13 @@ case class JoinSelectionOverrides(session: SparkSession)
     }.size > 0
   }
 
-  override def apply(plan: LogicalPlan): Seq[SparkPlan] =
+  override def apply(plan: LogicalPlan): Seq[SparkPlan] = {
+    // 对于 LogicalPlan 始终为 true
     LogicalPlanSelector.maybeNil(session, plan) {
       // Ignore forceShuffledHashJoin if exist multi continuous joins
       if (
-        GlutenConfig.getConf.enableLogicalJoinOptimize &&
-        existsMultiJoins(plan) && existLeftOuterJoin(plan)
+        GlutenConfig.getConf.enableLogicalJoinOptimize
+        && existsMultiJoins(plan) && existLeftOuterJoin(plan)
       ) {
         tagNotTransformableRecursive(plan, "exist multi continuous joins")
       }
@@ -218,4 +219,5 @@ case class JoinSelectionOverrides(session: SparkSession)
         case _ => Nil
       }
     }
+  }
 }

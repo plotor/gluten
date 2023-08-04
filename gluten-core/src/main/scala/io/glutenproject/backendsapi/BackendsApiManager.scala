@@ -18,6 +18,8 @@ package io.glutenproject.backendsapi
 
 import io.glutenproject.GlutenConfig
 
+import org.slf4j.LoggerFactory
+
 import java.util.ServiceLoader
 
 import scala.collection.JavaConverters
@@ -34,6 +36,8 @@ object BackendsApiManager {
       metricsApiInstance: MetricsApi,
       settings: BackendSettingsApi)
 
+  private val log = LoggerFactory.getLogger(classOf[Wrapper]);
+
   private lazy val manager: Wrapper = initializeInternal()
 
   /** Initialize all backends api. */
@@ -49,6 +53,7 @@ object BackendsApiManager {
           s"${discoveredBackends.map(_.name()).toList}")
     }
     val backend = discoveredBackends.head
+    log.info("Use backend impl: {}", backend.getClass.getName)
     Wrapper(
       backend.name(),
       backend.contextApi(),
@@ -74,6 +79,7 @@ object BackendsApiManager {
   }
 
   def isVeloxBackend: Boolean = getBackendName.equalsIgnoreCase(GlutenConfig.GLUTEN_VELOX_BACKEND)
+
   def isCHBackend: Boolean = getBackendName.equalsIgnoreCase(GlutenConfig.GLUTEN_CLICKHOUSE_BACKEND)
 
   def getContextApiInstance: ContextApi = {

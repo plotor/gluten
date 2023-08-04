@@ -17,8 +17,8 @@
     <maven.compiler.source>8</maven.compiler.source>
     <maven.compiler.target>8</maven.compiler.target>
     <scala.library.version>2.12.15</scala.library.version>
-    <spark.version>3.2.2</spark.version>
-    <spark32.version>3.2.2</spark32.version>
+    <spark.version>3.3.1</spark.version>
+    <!--<spark32.version>3.2.2</spark32.version>-->
     <spark33.version>3.3.1</spark33.version>
     <scala.binary.version>2.12</scala.binary.version>
     <spark.major.version>3</spark.major.version>
@@ -90,7 +90,7 @@
   </dependencyManagement>
 
   <profiles>
-    <profile>
+    <!--<profile>
       <id>spark-3.2</id>
       <properties>
         <spark.version>${spark32.version}</spark.version>
@@ -114,7 +114,7 @@
           <type>test-jar</type>
         </dependency>
       </dependencies>
-    </profile>
+    </profile>-->
     <profile>
       <id>spark-3.3</id>
       <properties>

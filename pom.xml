@@ -31,17 +31,23 @@
 
   <modules>
     <module>shims</module>
+    <module>gluten-ui</module>
     <module>gluten-core</module>
+    <module>gluten-data</module>
+    <module>gluten-celeborn</module>
+    <module>gluten-ut</module>
     <module>package</module>
     <module>substrait/substrait-spark</module>
-    <module>gluten-ui</module>
+    <module>tools/gluten-it</module>
+    <module>backends-velox</module>
+    <module>backends-clickhouse</module>
   </modules>
 
   <properties>
     <caffeine.version.java8>2.9.3</caffeine.version.java8>
-    <spark32.version>3.2.2</spark32.version>
+    <!--<spark32.version>3.2.2</spark32.version>
     <spark32.scala>2.12.15</spark32.scala>
-    <spark32bundle.version>3.2</spark32bundle.version>
+    <spark32bundle.version>3.2</spark32bundle.version>-->
     <spark33.version>3.3.1</spark33.version>
     <spark33.scala>2.12.15</spark33.scala>
     <spark33bundle.version>3.3</spark33bundle.version>
@@ -50,11 +56,11 @@
     <delta.version>${delta20.version}</delta.version>
     <delta.binary.version>20</delta.binary.version>
     <scala.binary.version>2.12</scala.binary.version>
-    <scala.version>${spark32.scala}</scala.version>
-    <spark.version>${spark32.version}</spark.version>
+    <scala.version>${spark33.scala}</scala.version>
+    <spark.version>${spark33.version}</spark.version>
     <spark.major.version>3</spark.major.version>
     <celeborn.version>0.3.0-incubating</celeborn.version>
-    <sparkbundle.version>${spark32bundle.version}</sparkbundle.version>
+    <sparkbundle.version>${spark33bundle.version}</sparkbundle.version>
     <arrow.version>12.0.0</arrow.version>
     <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
     <hadoop.version>${hadoop.version}</hadoop.version>
@@ -108,7 +114,7 @@
   </properties>
 
   <profiles>
-    <profile>
+    <!--<profile>
       <id>spark-3.2</id>
       <activation>
         <activeByDefault>true</activeByDefault>
@@ -122,7 +128,7 @@
         <sparkbundle.version>${spark32bundle.version}</sparkbundle.version>
         <sparkshim.artifactId>${spark32.shim.version}</sparkshim.artifactId>
       </properties>
-    </profile>
+    </profile>-->
     <profile>
       <id>spark-3.3</id>
       <properties>

@@ -1,0 +1,56 @@
+classDiagram
+direction BT
+class BasicScanExecTransformer {
+<<Interface>>
+
+}
+class BatchScanExecTransformer
+class BroadcastHashJoinExecTransformer
+class CoalesceExecTransformer
+class EvalPythonExecTransformer
+class ExpandExecTransformer
+class FileSourceScanExecTransformer
+class FilterExecTransformer
+class FilterExecTransformerBase
+class GenerateExecTransformer
+class GlutenBroadcastHashJoinExecTransformer
+class HashAggregateExecBaseTransformer
+class HashAggregateExecTransformer
+class HashJoinLikeExecTransformer {
+<<Interface>>
+
+}
+class HiveTableScanExecTransformer
+class LimitTransformer
+class ProjectExecTransformer
+class ShuffledHashJoinExecTransformer
+class ShuffledHashJoinExecTransformerBase
+class SortExecTransformer
+class SortMergeJoinExecTransformer
+class TransformSupport {
+<<Interface>>
+
+}
+class WholeStageTransformer
+class WindowExecTransformer
+
+BasicScanExecTransformer  -->  TransformSupport 
+BatchScanExecTransformer  ..>  BasicScanExecTransformer 
+BroadcastHashJoinExecTransformer  ..>  HashJoinLikeExecTransformer 
+CoalesceExecTransformer  ..>  TransformSupport 
+EvalPythonExecTransformer  ..>  TransformSupport 
+ExpandExecTransformer  ..>  TransformSupport 
+FileSourceScanExecTransformer  ..>  BasicScanExecTransformer 
+FilterExecTransformer  ..>  TransformSupport 
+FilterExecTransformerBase  ..>  TransformSupport 
+GenerateExecTransformer  ..>  TransformSupport 
+HashAggregateExecBaseTransformer  ..>  TransformSupport 
+HashJoinLikeExecTransformer  -->  TransformSupport 
+HiveTableScanExecTransformer  ..>  BasicScanExecTransformer 
+LimitTransformer  ..>  TransformSupport 
+ProjectExecTransformer  ..>  TransformSupport 
+ShuffledHashJoinExecTransformerBase  ..>  HashJoinLikeExecTransformer 
+SortExecTransformer  ..>  TransformSupport 
+SortMergeJoinExecTransformer  ..>  TransformSupport 
+WholeStageTransformer  ..>  TransformSupport 
+WindowExecTransformer  ..>  TransformSupport 

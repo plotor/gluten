@@ -1,0 +1,28 @@
+classDiagram
+direction BT
+class Rule {
+<<Abstract>>
+}
+
+FallbackOnANSIMode               --|>  Rule
+FallbackMultiCodegens            --|>  Rule
+FallbackBroadcastExchange        --|>  Rule
+
+ColumnarOverrideRules            --|>  Rule
+
+PlanOneRowRelation               --|>  Rule
+FallbackEmptySchemaRelation      --|>  Rule
+AddTransformHintRule             --|>  Rule
+TransformPreOverrides            --|>  Rule
+EnsureLocalSortRequirements      --|>  Rule
+GlutenFallbackReporter           --|>  Rule
+RemoveTransformHintRule          --|>  Rule
+
+TransformPostOverrides           --|>  Rule
+VanillaColumnarPlanOverrides     --|>  Rule
+NativeWritePostRule              --|>  Rule
+ColumnarCollapseTransformStages  --|>  Rule
+
+JoinSelectionOverrides           --|>  Rule
+
+AggregateFunctionRewriteRule     --|>  Rule

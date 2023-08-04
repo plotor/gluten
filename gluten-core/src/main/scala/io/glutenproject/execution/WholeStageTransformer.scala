@@ -240,7 +240,7 @@ case class WholeStageTransformer(child: SparkPlan)(val transformStageId: Int)
 
     if (basicScanExecTransformers.nonEmpty) {
 
-      /**
+      /*
        * If containing scan exec transformer this "whole stage" generates a RDD which itself takes
        * care of SCAN there won't be any other RDD for SCAN. As a result, genFirstStageIterator
        * rather than genFinalStageIterator will be invoked
@@ -287,10 +287,10 @@ case class WholeStageTransformer(child: SparkPlan)(val transformStageId: Int)
       )
     } else {
 
-      /**
+      /*
        * the whole stage contains NO BasicScanExecTransformer. this the default case for:
        *   1. SCAN with clickhouse backend (check ColumnarCollapseTransformStages#separateScanRDD())
-       *      2. test case where query plan is constructed from simple dataframes (e.g.
+       *   2. test case where query plan is constructed from simple dataframes (e.g.
        *      GlutenDataFrameAggregateSuite) in these cases, separate RDDs takes care of SCAN as a
        *      result, genFinalStageIterator rather than genFirstStageIterator will be invoked
        */

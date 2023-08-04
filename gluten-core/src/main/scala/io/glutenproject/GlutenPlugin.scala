@@ -57,6 +57,7 @@ private[glutenproject] class GlutenDriverPlugin extends DriverPlugin with Loggin
   private var _sc: Option[SparkContext] = None
 
   override def init(sc: SparkContext, pluginContext: PluginContext): util.Map[String, String] = {
+    logInfo("Initialize gluten driver plugin")
     _sc = Some(sc)
     GlutenEventUtils.registerListener(sc)
     postBuildInfoEvent(sc)
@@ -176,19 +177,19 @@ private[glutenproject] class GlutenDriverPlugin extends DriverPlugin with Loggin
   }
 }
 
-private[glutenproject] class GlutenExecutorPlugin extends ExecutorPlugin {
+private[glutenproject] class GlutenExecutorPlugin extends ExecutorPlugin with Logging {
   private var executorEndpoint: GlutenExecutorEndpoint = _
   private val taskListeners: Seq[TaskListener] = Array(TaskResources)
 
   /** Initialize the executor plugin. */
   override def init(ctx: PluginContext, extraConf: util.Map[String, String]): Unit = {
+    logInfo("Initialize gluten executor plugin")
     val conf = ctx.conf()
 
     // Must set the 'spark.memory.offHeap.size' value to native memory malloc
     if (
-      !conf.getBoolean("spark.memory.offHeap.enabled", false) ||
-      (JavaUtils.byteStringAsBytes(
-        conf.get("spark.memory.offHeap.size").toString) / 1024 / 1024).toInt <= 0
+      !conf.getBoolean("spark.memory.offHeap.enabled", defaultValue = false) ||
+      (JavaUtils.byteStringAsBytes(conf.get("spark.memory.offHeap.size")) / 1024 / 1024).toInt <= 0
     ) {
       throw new IllegalArgumentException(
         s"Must set 'spark.memory.offHeap.enabled' to true" +
@@ -221,13 +222,18 @@ private[glutenproject] class GlutenExecutorPlugin extends ExecutorPlugin {
   }
 }
 
-private[glutenproject] class GlutenSessionExtensions extends (SparkSessionExtensions => Unit) {
+private[glutenproject] class GlutenSessionExtensions
+  extends (SparkSessionExtensions => Unit)
+  with Logging {
+
   override def apply(exts: SparkSessionExtensions): Unit = {
     GlutenPlugin.DEFAULT_INJECTORS.foreach(injector => injector.inject(exts))
   }
+
 }
 
 private[glutenproject] class SparkConfImplicits(conf: SparkConf) {
+
   def enableGlutenPlugin(): SparkConf = {
     if (conf.contains(GlutenPlugin.SPARK_SQL_PLUGINS_KEY)) {
       throw new IllegalArgumentException(
@@ -236,6 +242,7 @@ private[glutenproject] class SparkConfImplicits(conf: SparkConf) {
     }
     conf.set(GlutenPlugin.SPARK_SQL_PLUGINS_KEY, GlutenPlugin.GLUTEN_PLUGIN_NAME)
   }
+
 }
 
 private[glutenproject] trait GlutenSparkExtensionsInjector {

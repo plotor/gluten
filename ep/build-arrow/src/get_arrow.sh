@@ -16,7 +16,7 @@
 
 set -exu
 
-ARROW_REPO=https://github.com/apache/arrow.git
+ARROW_REPO=https://gitee.com/acla/arrow.git
 ARROW_BRANCH=apache-arrow-12.0.0
 ARROW_HOME=""
 

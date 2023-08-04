@@ -28,6 +28,12 @@
   <name>Gluten Shims</name>
   <packaging>pom</packaging>
 
+  <modules>
+    <module>common</module>
+    <!--<module>spark32</module>-->
+    <module>spark33</module>
+  </modules>
+
   <dependencies>
     <dependency>
       <groupId>org.scalatest</groupId>
@@ -67,7 +73,7 @@
 
   </build>
   <profiles>
-    <profile>
+   <!-- <profile>
       <id>spark-3.2</id>
       <activation>
         <activeByDefault>true</activeByDefault>
@@ -76,7 +82,7 @@
         <module>common</module>
         <module>spark32</module>
       </modules>
-    </profile>
+    </profile>-->
     <profile>
       <id>spark-3.3</id>
       <modules>

@@ -28,7 +28,7 @@ object SparkRuleUtil extends Logging {
       session: SparkSession,
       conf: String
   ): List[SparkSession => Rule[SparkPlan]] = {
-    val extendedRules = conf.split(",").filter(!_.isEmpty)
+    val extendedRules = conf.split(",").filter(_.nonEmpty)
     extendedRules
       .map {
         ruleStr =>
@@ -40,7 +40,7 @@ object SparkRuleUtil extends Logging {
                 .newInstance(session)
                 .asInstanceOf[Rule[SparkPlan]]
 
-            Some((sparkSession: SparkSession) => extensionConf)
+            Some((_: SparkSession) => extensionConf)
           } catch {
             // Ignore the error if we cannot find the class or when the class has the wrong type.
             case e @ (_: ClassCastException | _: ClassNotFoundException |
@@ -49,7 +49,7 @@ object SparkRuleUtil extends Logging {
               None
           }
       }
-      .filter(!_.isEmpty)
+      .filter(_.isDefined)
       .map(_.get)
       .toList
   }

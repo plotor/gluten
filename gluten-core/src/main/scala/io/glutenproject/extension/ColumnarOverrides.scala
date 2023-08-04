@@ -738,6 +738,7 @@ case class ColumnarOverrideRules(session: SparkSession)
   // This is an empirical value, may need to be changed for supporting other versions of spark.
   private val aqeStackTraceIndex = 13
 
+  // 原物理计划，用于 fallback
   private var originalPlan: SparkPlan = _
   // Do not create rules in class initialization as we should access SQLConf
   // while creating the rules. At this time SQLConf may not be there yet.
@@ -756,10 +757,11 @@ case class ColumnarOverrideRules(session: SparkSession)
     }
     tagBeforeTransformHitsRules :::
       List(
-        (spark: SparkSession) => PlanOneRowRelation(spark),
+        (spark: SparkSession) => PlanOneRowRelation(spark), // 给只有一行的数据伪造一个 schema 信息
         (_: SparkSession) => FallbackEmptySchemaRelation(),
+        // 利用算子对应的 Transformer 检测是否支持转换，如果支持则标识为 TRANSFORM_SUPPORTED
         (_: SparkSession) => AddTransformHintRule(),
-        (_: SparkSession) => TransformPreOverrides(this.isAdaptiveContext),
+        (_: SparkSession) => TransformPreOverrides(this.isAdaptiveContext), // 构造算子对应的 Transformer
         (_: SparkSession) => EnsureLocalSortRequirements
       ) :::
       BackendsApiManager.getSparkPlanExecApiInstance.genExtendedColumnarPreRules() :::
@@ -775,6 +777,7 @@ case class ColumnarOverrideRules(session: SparkSession)
       (_: SparkSession) => TransformPostOverrides(this.isAdaptiveContext),
       (s: SparkSession) => VanillaColumnarPlanOverrides(s)) :::
       BackendsApiManager.getSparkPlanExecApiInstance.genExtendedColumnarPostRules() :::
+      // 参考 CollapseCodegenStages 实现，找到支持转换的链式计划，将它们折叠在一起作为 WholeStageTransformer
       List((_: SparkSession) => ColumnarCollapseTransformStages(GlutenConfig.getConf)) :::
       SparkRuleUtil.extendedColumnarRules(session, GlutenConfig.getConf.extendedColumnarPostRules)
 
@@ -786,6 +789,7 @@ case class ColumnarOverrideRules(session: SparkSession)
   }
 
   override def preColumnarTransitions: Rule[SparkPlan] = plan =>
+    // 对于 Velox 而言，始终返回 true
     PhysicalPlanSelector.maybe(session, plan) {
       val traceElements = Thread.currentThread.getStackTrace
       assert(

@@ -19,10 +19,10 @@ spark_sql_perf_jar=/root/workspace/tpch/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
 cat tpch_datagen_parquet.scala | ${SPARK_HOME}/bin/spark-shell \
   --num-executors 1 \
   --name tpch_gen_parquet \
-  --executor-memory 8g \
-  --executor-cores 1 \
+  --executor-memory 16g \
+  --executor-cores 8 \
   --master yarn \
-  --driver-memory 8g \
+  --driver-memory 16g \
   --deploy-mode client \
   --conf spark.executor.memoryOverhead=1g \
   --conf spark.sql.parquet.columnarReaderBatchSize=${batchsize} \

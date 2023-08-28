@@ -17,8 +17,8 @@
 import com.databricks.spark.sql.perf.tpch._
 
 
-val scaleFactor = "100" // scaleFactor defines the size of the dataset to generate (in GB).
-val numPartitions = 64  // how many dsdgen partitions to run - number of input tasks.
+val scaleFactor = "10" // scaleFactor defines the size of the dataset to generate (in GB).
+val numPartitions = 16  // how many dsdgen partitions to run - number of input tasks.
 
 val format = "parquet" // valid spark format like parquet "parquet".
 val rootDir = "/gluten/benchmark/tpch" // root directory of location to create data in.

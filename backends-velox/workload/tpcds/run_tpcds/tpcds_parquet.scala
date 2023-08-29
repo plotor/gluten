@@ -95,7 +95,7 @@ def getListOfFiles(dir: String): List[File] = {
      }
 }
 val fileLists =
-  getListOfFiles(gluten_root + "/gluten-core/src/test/resources/tpcds-queries/")
+  getListOfFiles(gluten_root + "/gluten-core/src/test/resources/tpcds-queries/tpcds.queries.original")
 val sorted = fileLists.sortBy {
        f => f.getName match {
        case name =>
@@ -107,7 +107,7 @@ val sorted = fileLists.sortBy {
          str.toDouble
      }}
 
-// Main program to run TPC-H testing
+// Main program to run TPC-DS testing
 for (t <- sorted) {
   println(t)
   val fileContents = Source.fromFile(t).getLines.filter(!_.startsWith("--")).mkString(" ")

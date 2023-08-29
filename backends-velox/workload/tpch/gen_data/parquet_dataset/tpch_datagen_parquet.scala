@@ -17,7 +17,7 @@
 import com.databricks.spark.sql.perf.tpch._
 
 
-val scaleFactor = "10" // scaleFactor defines the size of the dataset to generate (in GB).
+val scaleFactor = "1" // scaleFactor defines the size of the dataset to generate (in GB).
 val numPartitions = 16  // how many dsdgen partitions to run - number of input tasks.
 
 val format = "parquet" // valid spark format like parquet "parquet".

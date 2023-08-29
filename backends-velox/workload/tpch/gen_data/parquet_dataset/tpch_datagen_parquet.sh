@@ -17,10 +17,10 @@ batchsize=10240
 SPARK_HOME=/opt/spark/spark-3.3
 spark_sql_perf_jar=/root/workspace/tpch/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
 cat tpch_datagen_parquet.scala | ${SPARK_HOME}/bin/spark-shell \
-  --num-executors 1 \
+  --num-executors 2 \
   --name tpch_gen_parquet \
-  --executor-memory 32g \
-  --executor-cores 16 \
+  --executor-memory 16g \
+  --executor-cores 8 \
   --master yarn \
   --driver-memory 16g \
   --deploy-mode client \

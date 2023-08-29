@@ -15,7 +15,7 @@
 #please choose right os system jar
 GLUTEN_JAR=/opt/spark/gluten/gluten-package-1.1.0-SNAPSHOT.jar
 SPARK_HOME=/opt/spark/spark-3.3
-cat tpds_parquet.scala | ${SPARK_HOME}/bin/spark-shell \
+cat tpcds_parquet.scala | ${SPARK_HOME}/bin/spark-shell \
   --master yarn --deploy-mode client \
   --conf spark.plugins=io.glutenproject.GlutenPlugin \
   --conf spark.driver.extraClassPath=${GLUTEN_JAR} \

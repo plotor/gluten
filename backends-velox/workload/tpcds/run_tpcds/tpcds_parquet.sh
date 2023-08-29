@@ -12,24 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-batchsize=10240
+#please choose right os system jar
+GLUTEN_JAR=/opt/spark/gluten/gluten-package-1.1.0-SNAPSHOT.jar
 SPARK_HOME=/opt/spark/spark-3.3
-spark_sql_perf_jar=/root/workspace/tpch/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
-cat tpch_datagen_parquet.scala | ${SPARK_HOME}/bin/spark-shell \
-  --num-executors 16 \
-  --name tpch_gen_parquet \
-  --executor-memory 24g \
+cat tpds_parquet.scala | ${SPARK_HOME}/bin/spark-shell \
+  --master yarn --deploy-mode client \
+  --conf spark.plugins=io.glutenproject.GlutenPlugin \
+  --conf spark.driver.extraClassPath=${GLUTEN_JAR} \
+  --conf spark.executor.extraClassPath=${GLUTEN_JAR} \
+  --conf spark.memory.offHeap.enabled=true \
+  --conf spark.memory.offHeap.size=8g \
+  --conf spark.gluten.sql.columnar.forceShuffledHashJoin=true \
+  --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
+  --num-executors 8 \
   --executor-cores 8 \
-  --master yarn \
   --driver-memory 16g \
-  --deploy-mode client \
-  --conf spark.executor.memoryOverhead=1g \
-  --conf spark.sql.parquet.columnarReaderBatchSize=${batchsize} \
-  --conf spark.sql.inMemoryColumnarStorage.batchSize=${batchsize} \
-  --conf spark.sql.execution.arrow.maxRecordsPerBatch=${batchsize} \
-  --conf spark.sql.broadcastTimeout=4800 \
-  --conf spark.driver.maxResultSize=4g \
-  --conf spark.sql.sources.useV1SourceList=avro \
-  --conf spark.sql.shuffle.partitions=224 \
-  --jars ${spark_sql_perf_jar}
+  --executor-memory 24g \
+  --conf spark.executor.memoryOverhead=2g \
+  --conf spark.driver.maxResultSize=2g

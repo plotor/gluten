@@ -20,7 +20,7 @@ cat tpcds_datagen_parquet.scala | ${SPARK_HOME}/bin/spark-shell \
   --num-executors 16 \
   --name tpcds_gen_parquet \
   --executor-memory 24g \
-  --executor-cores 4 \
+  --executor-cores 6 \
   --master yarn \
   --driver-memory 16g \
   --deploy-mode client \

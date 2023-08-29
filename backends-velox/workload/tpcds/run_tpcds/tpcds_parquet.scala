@@ -33,7 +33,6 @@ def time[R](block: => R): R = {
 }
 
 // Read TPC-DS Table from parquet files.
-val protocol_prefix="hdfs://localhost:8020"
 val call_center = spark.read.format("parquet").load(s"$parquet_file_path/call_center")
 val catalog_page = spark.read.format("parquet").load(s"$parquet_file_path/catalog_page")
 val catalog_returns = spark.read.format("parquet").load(s"$parquet_file_path/catalog_returns")

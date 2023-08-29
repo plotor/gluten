@@ -1,4 +1,6 @@
-**/target/**
+# IDEA config files
+.idea/
+**/target
 *.class
 *.iml
 
@@ -7,11 +9,6 @@
 
 # cache files
 *.cache
-
-# IDEA config files
-.idea/
-*.iml
-*.class
 
 # vscode config
 .vscode
@@ -32,16 +29,10 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
-
-.idea/
 target/
-*.iml
 
 **/target/**
 **/dependency-reduced-pom.xml
-
-# logs
-*.log
 
 thirdparty/*.tar*
 CMakeFiles/
@@ -90,3 +81,6 @@ dist/
 
 /cpp-ch/local-engine/Parser/*_udf
 !/cpp-ch/local-engine/Parser/example_udf
+
+# Mac OS
+**/.DS_Store

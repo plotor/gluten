@@ -17,14 +17,14 @@ batchsize=10240
 SPARK_HOME=/opt/spark/spark-3.3
 spark_sql_perf_jar=/root/workspace/tpcds/spark-sql-perf_2.12-0.5.1-SNAPSHOT.jar
 cat tpch_datagen_parquet.scala | ${SPARK_HOME}/bin/spark-shell \
-  --num-executors 16 \
+  --num-executors 6 \
   --name tpch_gen_parquet \
-  --executor-memory 24g \
-  --executor-cores 6 \
+  --executor-memory 8g \
+  --executor-cores 2 \
   --master yarn \
-  --driver-memory 16g \
+  --driver-memory 8g \
   --deploy-mode client \
-  --conf spark.executor.memoryOverhead=1g \
+  --conf spark.executor.memoryOverhead=2g \
   --conf spark.sql.parquet.columnarReaderBatchSize=${batchsize} \
   --conf spark.sql.inMemoryColumnarStorage.batchSize=${batchsize} \
   --conf spark.sql.execution.arrow.maxRecordsPerBatch=${batchsize} \

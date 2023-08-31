@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 #pragma once
-#include <string>
+
+#include <Columns/IColumn.h>
+#include <Formats/FormatSettings.h>
+#include <IO/ReadBuffer.h>
+
 
 namespace local_engine
 {
-struct JoinOptimizationInfo
-{
-    bool is_broadcast;
-    bool is_null_aware_anti_join;
-    std::string storage_join_key;
-};
+using namespace DB;
 
 
-JoinOptimizationInfo parseJoinOptimizationInfo(const std::string & optimization);
 
+void deserializeExcelBoolTextCSV(IColumn & column, ReadBuffer & istr, const FormatSettings & settings);
 
 }

@@ -17,16 +17,16 @@
 package org.apache.spark.sql.execution
 
 import io.glutenproject.columnarbatch.ColumnarBatches
+import io.glutenproject.exec.ExecutionCtxs
 import io.glutenproject.execution.ColumnarToRowExecBase
+import io.glutenproject.extension.ValidationResult
 import io.glutenproject.memory.nmm.NativeMemoryManagers
 import io.glutenproject.vectorized.NativeColumnarToRowJniWrapper
 
 import org.apache.spark.{OneToOneDependency, Partition, SparkContext, TaskContext}
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, SortOrder, UnsafeProjection, UnsafeRow}
-import org.apache.spark.sql.catalyst.plans.physical.Partitioning
+import org.apache.spark.sql.catalyst.expressions.{Attribute, UnsafeProjection, UnsafeRow}
 import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.ColumnarBatch
@@ -38,7 +38,7 @@ case class VeloxColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExecBas
 
   override def nodeName: String = "VeloxColumnarToRowExec"
 
-  override def buildCheck(): Unit = {
+  override protected def doValidateInternal(): ValidationResult = {
     val schema = child.schema
     // Depending on the input type, VeloxColumnarToRowConverter.
     for (field <- schema.fields) {
@@ -64,10 +64,7 @@ case class VeloxColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExecBas
               s"VeloxColumnarToRowExec.")
       }
     }
-  }
-
-  override def doExecuteBroadcast[T](): Broadcast[T] = {
-    child.doExecuteBroadcast()
+    ValidationResult.ok
   }
 
   override def doExecuteInternal(): RDD[InternalRow] = {
@@ -83,12 +80,6 @@ case class VeloxColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExecBas
       numInputBatches,
       convertTime)
   }
-
-  override def output: Seq[Attribute] = child.output
-
-  override def outputPartitioning: Partitioning = child.outputPartitioning
-
-  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
 
   protected def withNewChildInternal(newChild: SparkPlan): VeloxColumnarToRowExec =
     copy(child = newChild)
@@ -114,15 +105,17 @@ class ColumnarToRowRDD(
       if (batches.isEmpty) {
         Iterator.empty
       } else {
+        val executionCtxHandle = ExecutionCtxs.contextInstance().getHandle
         // TODO:: pass the jni jniWrapper and arrowSchema  and serializeSchema method by broadcast
         val jniWrapper = new NativeColumnarToRowJniWrapper()
         var closed = false
         val c2rId = jniWrapper.nativeColumnarToRowInit(
-          NativeMemoryManagers.contextInstance("ColumnarToRow").getNativeInstanceId)
+          executionCtxHandle,
+          NativeMemoryManagers.contextInstance("ColumnarToRow").getNativeInstanceHandle)
 
         TaskResources.addRecycler(s"ColumnarToRow_$c2rId", 100) {
           if (!closed) {
-            jniWrapper.nativeClose(c2rId)
+            jniWrapper.nativeClose(executionCtxHandle, c2rId)
             closed = true
           }
         }
@@ -132,7 +125,7 @@ class ColumnarToRowRDD(
           override def hasNext: Boolean = {
             val hasNext = batches.hasNext
             if (!hasNext && !closed) {
-              jniWrapper.nativeClose(c2rId)
+              jniWrapper.nativeClose(executionCtxHandle, c2rId)
               closed = true
             }
             hasNext
@@ -166,7 +159,8 @@ class ColumnarToRowRDD(
               val rows = batch.numRows()
               val beforeConvert = System.currentTimeMillis()
               val batchHandle = ColumnarBatches.getNativeHandle(batch)
-              val info = jniWrapper.nativeColumnarToRowConvert(batchHandle, c2rId)
+              val info =
+                jniWrapper.nativeColumnarToRowConvert(executionCtxHandle, batchHandle, c2rId)
 
               convertTime += (System.currentTimeMillis() - beforeConvert)
               // batch.close()

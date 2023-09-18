@@ -182,17 +182,19 @@ file(COPY utils/metrics.h DESTINATION ${root_directory}/releases/include/common/
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-attributes")
 set(SPARK_COLUMNAR_PLUGIN_SRCS
-        jni/JniWrapper.cc
-        compute/Backend.cc
-        compute/ResultIterator.cc
-        config/GlutenConfig.cc
-        memory/MemoryAllocator.cc
-        memory/ArrowMemoryPool.cc
         ${SUBSTRAIT_PROTO_SRCS}
         ${GLUTEN_PROTO_SRCS}
+        compute/ExecutionCtx.cc
         compute/ProtobufUtils.cc
+        compute/ResultIterator.cc
+        config/GlutenConfig.cc
+        jni/JniWrapper.cc
+        memory/AllocationListener.cc
+        memory/MemoryAllocator.cc
+        memory/ArrowMemoryPool.cc
+        memory/ColumnarBatch.cc
         operators/writer/ArrowWriter.cc
-        shuffle/reader.cc
+        shuffle/ShuffleReader.cc
         shuffle/ShuffleWriter.cc
         shuffle/Partitioner.cc
         shuffle/FallbackRangePartitioner.cc
@@ -203,7 +205,6 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         shuffle/LocalPartitionWriter.cc
         shuffle/rss/RemotePartitionWriter.cc
         shuffle/rss/CelebornPartitionWriter.cc
-        memory/ColumnarBatch.cc
         utils/Compression.cc
         utils/StringUtil.cc)
 

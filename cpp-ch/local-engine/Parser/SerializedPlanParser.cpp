@@ -536,49 +536,6 @@ QueryPlanPtr SerializedPlanParser::parseOp(const substrait::Rel & rel, std::list
             query_plan->addStep(std::move(limit_step));
             break;
         }
-        case substrait::Rel::RelTypeCase::kFilter: {
-            rel_stack.push_back(&rel);
-            const auto & filter = rel.filter();
-            query_plan = parseOp(filter.input(), rel_stack);
-            rel_stack.pop_back();
-            std::string filter_name;
-
-            ActionsDAGPtr actions_dag = nullptr;
-            if (filter.condition().has_scalar_function())
-            {
-                actions_dag = parseFunction(query_plan->getCurrentDataStream().header, filter.condition(), filter_name, nullptr, true);
-            }
-            else
-            {
-                actions_dag = std::make_shared<ActionsDAG>(blockToNameAndTypeList(query_plan->getCurrentDataStream().header));
-                const auto * node = parseExpression(actions_dag, filter.condition());
-                filter_name = node->result_name;
-            }
-
-            bool remove_filter_column = true;
-            auto input = query_plan->getCurrentDataStream().header.getNames();
-            NameSet input_with_condition(input.begin(), input.end());
-            if (input_with_condition.contains(filter_name))
-                remove_filter_column = false;
-            else
-                input_with_condition.emplace(filter_name);
-
-            actions_dag->removeUnusedActions(input_with_condition);
-            NonNullableColumnsResolver non_nullable_columns_resolver(query_plan->getCurrentDataStream().header, *this, filter.condition());
-            auto non_nullable_columns = non_nullable_columns_resolver.resolve();
-            auto filter_step
-                = std::make_unique<FilterStep>(query_plan->getCurrentDataStream(), actions_dag, filter_name, remove_filter_column);
-            filter_step->setStepDescription("WHERE");
-            steps.emplace_back(filter_step.get());
-            query_plan->addStep(std::move(filter_step));
-            // remove nullable
-            auto * remove_null_step = addRemoveNullableStep(*query_plan, non_nullable_columns);
-            if (remove_null_step)
-            {
-                steps.emplace_back(remove_null_step);
-            }
-            break;
-        }
         case substrait::Rel::RelTypeCase::kRead: {
             const auto & read = rel.read();
             assert(read.has_local_files() || read.has_extension_table() && "Only support local parquet files or merge tree read rel");
@@ -609,6 +566,7 @@ QueryPlanPtr SerializedPlanParser::parseOp(const substrait::Rel & rel, std::list
             }
             break;
         }
+        case substrait::Rel::RelTypeCase::kFilter:
         case substrait::Rel::RelTypeCase::kGenerate:
         case substrait::Rel::RelTypeCase::kProject:
         case substrait::Rel::RelTypeCase::kAggregate:
@@ -626,15 +584,17 @@ QueryPlanPtr SerializedPlanParser::parseOp(const substrait::Rel & rel, std::list
             throw Exception(ErrorCodes::UNKNOWN_TYPE, "doesn't support relation type: {}.\n{}", rel.rel_type_case(), rel.DebugString());
     }
 
-    if (rel.rel_type_case() == substrait::Rel::RelTypeCase::kRead)
+    if (!context->getSettingsRef().query_plan_enable_optimizations)
     {
-        size_t id = metrics.empty() ? 0 : metrics.back()->getId() + 1;
-        metrics.emplace_back(std::make_shared<RelMetric>(id, String(magic_enum::enum_name(rel.rel_type_case())), steps));
+        if (rel.rel_type_case() == substrait::Rel::RelTypeCase::kRead)
+        {
+            size_t id = metrics.empty() ? 0 : metrics.back()->getId() + 1;
+            metrics.emplace_back(std::make_shared<RelMetric>(id, String(magic_enum::enum_name(rel.rel_type_case())), steps));
+        }
+        else
+            metrics = {std::make_shared<RelMetric>(String(magic_enum::enum_name(rel.rel_type_case())), metrics, steps)};
     }
-    else
-    {
-        metrics = {std::make_shared<RelMetric>(String(magic_enum::enum_name(rel.rel_type_case())), metrics, steps)};
-    }
+
     return query_plan;
 }
 
@@ -911,26 +871,8 @@ ActionsDAG::NodeRawConstPtrs SerializedPlanParser::parseArrayJoinWithDAG(
             /// col = arrayJoin(arg_not_null).2 or (key, value) = arrayJoin(arg_not_null).2
             const auto * item_node = add_tuple_element(array_join_node, 2);
 
-            /// Get type of y from node: cast(mapFromArrays(x, y), 'Map(K, V)')
-            DataTypePtr raw_child_type;
-            if (args[0]->type == ActionsDAG::ActionType::FUNCTION && args[0]->function_base->getName() == "mapFromArrays")
-            {
-                /// Get Type of y from node: mapFromArrays(x, y)
-                raw_child_type = DB::removeNullable(args[0]->children[1]->result_type);
-            }
-            else if (
-                args[0]->type == ActionsDAG::ActionType::FUNCTION && args[0]->function_base->getName() == "_CAST"
-                && args[0]->children[0]->type == ActionsDAG::ActionType::FUNCTION
-                && args[0]->children[0]->function_base->getName() == "mapFromArrays")
-            {
-                /// Get Type of y from node: cast(mapFromArrays(x, y), 'Map(K, V)')
-                raw_child_type = DB::removeNullable(args[0]->children[0]->children[1]->result_type);
-            }
-            else
-                throw Exception(ErrorCodes::BAD_ARGUMENTS, "Invalid argument type of arrayJoin: {}", actions_dag->dumpDAG());
-
-
-            if (isMap(raw_child_type))
+            /// It is a tricky but efficient way to get the original type of argument type in posexplode
+            if (endsWith(args[0]->result_name, "type_hint:map"))
             {
                 /// key = arrayJoin(arg_not_null).2.1
                 const auto * item_key_node = add_tuple_element(item_node, 1);
@@ -950,7 +892,7 @@ ActionsDAG::NodeRawConstPtrs SerializedPlanParser::parseArrayJoinWithDAG(
 
                 return {pos_node, item_key_node, item_value_node};
             }
-            else if (isArray(raw_child_type))
+            else if (endsWith(args[0]->result_name, "type_hint:array"))
             {
                 /// col = arrayJoin(arg_not_null).2
                 result_names.push_back(pos_node->result_name);
@@ -964,9 +906,7 @@ ActionsDAG::NodeRawConstPtrs SerializedPlanParser::parseArrayJoinWithDAG(
             }
             else
                 throw Exception(
-                    ErrorCodes::BAD_ARGUMENTS,
-                    "The raw input of arrayJoin converted from posexplode should be Array or Map type but is {}",
-                    raw_child_type->getName());
+                    ErrorCodes::BAD_ARGUMENTS, "The raw input of arrayJoin converted from posexplode should be Array or Map type");
         }
         else
             throw Exception(
@@ -1276,21 +1216,6 @@ void SerializedPlanParser::parseFunctionArguments(
         function_name = "repeat";
         parsed_args.emplace_back(space_str_node);
         parsed_args.emplace_back(repeat_times_node);
-    }
-    else if (function_name == "mapFromArrays")
-    {
-        /// Remove nullable for first arg
-        parseFunctionArgument(actions_dag, parsed_args, function_name, args[0]);
-        const auto * first_arg = parsed_args.back();
-        auto assume_not_null_builder = FunctionFactory::instance().get("assumeNotNull", context);
-        const auto * first_arg_not_null
-            = &actions_dag->addFunction(assume_not_null_builder, {first_arg}, "assumeNotNull(" + first_arg->result_name + ")");
-        parsed_args.back() = first_arg_not_null;
-        parseFunctionArgument(actions_dag, parsed_args, function_name, args[1]);
-        auto second_arg = parsed_args.back();
-        const auto * second_arg_not_null
-            = &actions_dag->addFunction(assume_not_null_builder, {second_arg}, "assumeNotNull(" + second_arg->result_name + ")");
-        parsed_args.back() = second_arg_not_null;
     }
     else if (function_name == "trimBothSpark" || function_name == "trimLeftSpark" || function_name == "trimRightSpark")
     {
@@ -2136,22 +2061,24 @@ LocalExecutor::~LocalExecutor()
 
 void LocalExecutor::execute(QueryPlanPtr query_plan)
 {
-    current_query_plan = std::move(query_plan);
     Stopwatch stopwatch;
-    stopwatch.start();
-    QueryPlanOptimizationSettings optimization_settings{.optimize_plan = false};
-    DB::QueryPriorities priorities;
-    String query = "query";
+
     const Settings & settings = context->getSettingsRef();
+    current_query_plan = std::move(query_plan);
+    auto * logger = &Poco::Logger::get("LocalExecutor");
+
+    DB::QueryPriorities priorities;
     auto query_status = std::make_shared<DB::QueryStatus>(
         context,
-        query,
+        "",
         context->getClientInfo(),
-        priorities.insert(static_cast<int>(context->getSettingsRef().priority)),
+        priorities.insert(static_cast<int>(settings.priority)),
         DB::CurrentThread::getGroup(),
         DB::IAST::QueryKind::Select,
         settings,
         0);
+
+    QueryPlanOptimizationSettings optimization_settings{.optimize_plan = settings.query_plan_enable_optimizations};
     auto pipeline_builder = current_query_plan->buildQueryPipeline(
         optimization_settings,
         BuildQueryPipelineSettings{
@@ -2159,24 +2086,29 @@ void LocalExecutor::execute(QueryPlanPtr query_plan)
             = ExpressionActionsSettings{.can_compile_expressions = true, .min_count_to_compile_expression = 3, .compile_expressions = CompileExpressions::yes},
             .process_list_element = query_status});
 
+    LOG_DEBUG(logger, "clickhouse plan after optimization:\n{}", PlanUtil::explainPlan(*current_query_plan));
     query_pipeline = QueryPipelineBuilder::getPipeline(std::move(*pipeline_builder));
-    LOG_DEBUG(&Poco::Logger::get("LocalExecutor"), "clickhouse pipeline:\n{}", QueryPipelineUtil::explainPipeline(query_pipeline));
+    LOG_DEBUG(logger, "clickhouse pipeline:\n{}", QueryPipelineUtil::explainPipeline(query_pipeline));
     auto t_pipeline = stopwatch.elapsedMicroseconds();
+
     executor = std::make_unique<PullingPipelineExecutor>(query_pipeline);
     auto t_executor = stopwatch.elapsedMicroseconds() - t_pipeline;
     stopwatch.stop();
     LOG_INFO(
-        &Poco::Logger::get("SerializedPlanParser"),
+        logger,
         "build pipeline {} ms; create executor {} ms;",
         t_pipeline / 1000.0,
         t_executor / 1000.0);
+
     header = current_query_plan->getCurrentDataStream().header.cloneEmpty();
     ch_column_to_spark_row = std::make_unique<CHColumnToSparkRow>();
 }
+
 std::unique_ptr<SparkRowInfo> LocalExecutor::writeBlockToSparkRow(Block & block)
 {
     return ch_column_to_spark_row->convertCHColumnToSparkRow(block);
 }
+
 bool LocalExecutor::hasNext()
 {
     bool has_next;
@@ -2210,6 +2142,7 @@ bool LocalExecutor::hasNext()
     }
     return has_next;
 }
+
 SparkRowInfoPtr LocalExecutor::next()
 {
     checkNextValid();
@@ -2248,7 +2181,9 @@ Block & LocalExecutor::getHeader()
 {
     return header;
 }
-LocalExecutor::LocalExecutor(QueryContext & _query_context, ContextPtr context_) : query_context(_query_context), context(context_)
+
+LocalExecutor::LocalExecutor(QueryContext & _query_context, ContextPtr context_)
+    : query_context(_query_context), context(context_)
 {
 }
 

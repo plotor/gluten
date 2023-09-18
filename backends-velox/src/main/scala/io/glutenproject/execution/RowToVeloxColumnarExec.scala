@@ -18,17 +18,16 @@ package io.glutenproject.execution
 
 import io.glutenproject.backendsapi.velox.Validator
 import io.glutenproject.columnarbatch.ColumnarBatches
+import io.glutenproject.exec.ExecutionCtxs
 import io.glutenproject.memory.arrowalloc.ArrowBufferAllocators
 import io.glutenproject.memory.nmm.NativeMemoryManagers
 import io.glutenproject.utils.ArrowAbiUtil
 import io.glutenproject.vectorized._
 
-import org.apache.spark.broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, SortOrder, UnsafeProjection, UnsafeRow}
-import org.apache.spark.sql.catalyst.plans.physical.Partitioning
-import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
+import org.apache.spark.sql.catalyst.expressions.{UnsafeProjection, UnsafeRow}
+import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.utils.SparkArrowUtil
 import org.apache.spark.sql.vectorized.ColumnarBatch
@@ -40,11 +39,15 @@ import org.apache.arrow.memory.ArrowBuf
 
 import scala.collection.mutable.ListBuffer
 
-case class RowToVeloxColumnarExec(child: SparkPlan)
-  extends RowToColumnarExecBase(child = child)
-  with UnaryExecNode {
+case class RowToVeloxColumnarExec(child: SparkPlan) extends RowToColumnarExecBase(child = child) {
 
   override def doExecuteColumnarInternal(): RDD[ColumnarBatch] = {
+    if (!new Validator().doSchemaValidate(schema)) {
+      throw new UnsupportedOperationException(
+        s"Input schema contains unsupported type when convert row to columnar, " +
+          s"${schema.toString()}")
+    }
+
     val numInputRows = longMetric("numInputRows")
     val numOutputBatches = longMetric("numOutputBatches")
     val convertTime = longMetric("convertTime")
@@ -54,12 +57,6 @@ case class RowToVeloxColumnarExec(child: SparkPlan)
     // This avoids calling `schema` in the RDD closure, so that we don't need to include the entire
     // plan (this) in the closure.
     val localSchema = schema
-    if (!new Validator().doSchemaValidate(schema)) {
-      throw new UnsupportedOperationException(
-        s"Input schema contains unsupported type when convert row to columnar, " +
-          s"${schema.toString()}")
-    }
-
     child.execute().mapPartitions {
       rowIterator =>
         if (rowIterator.isEmpty) {
@@ -67,25 +64,27 @@ case class RowToVeloxColumnarExec(child: SparkPlan)
         } else {
           val arrowSchema =
             SparkArrowUtil.toArrowSchema(localSchema, SQLConf.get.sessionLocalTimeZone)
+          val executionCtxHandle = ExecutionCtxs.contextInstance().getHandle
           val jniWrapper = new NativeRowToColumnarJniWrapper()
           val allocator = ArrowBufferAllocators.contextInstance()
           val cSchema = ArrowSchema.allocateNew(allocator)
           var closed = false
-          val r2cId =
+          val r2cHandle =
             try {
               ArrowAbiUtil.exportSchema(allocator, arrowSchema, cSchema)
               jniWrapper.init(
                 cSchema.memoryAddress(),
+                executionCtxHandle,
                 NativeMemoryManagers
                   .contextInstance("RowToColumnar")
-                  .getNativeInstanceId)
+                  .getNativeInstanceHandle)
             } finally {
               cSchema.close()
             }
 
-          TaskResources.addRecycler(s"RowToColumnar_$r2cId", 100) {
+          TaskResources.addRecycler(s"RowToColumnar_$r2cHandle", 100) {
             if (!closed) {
-              jniWrapper.close(r2cId)
+              jniWrapper.close(executionCtxHandle, r2cHandle)
               closed = true
             }
           }
@@ -95,7 +94,7 @@ case class RowToVeloxColumnarExec(child: SparkPlan)
             override def hasNext: Boolean = {
               val itHasNext = rowIterator.hasNext
               if (!itHasNext && !closed) {
-                jniWrapper.close(r2cId)
+                jniWrapper.close(executionCtxHandle, r2cHandle)
                 closed = true
               }
               itHasNext
@@ -154,8 +153,12 @@ case class RowToVeloxColumnarExec(child: SparkPlan)
               numInputRows += rowCount
               try {
                 val handle = jniWrapper
-                  .nativeConvertRowToColumnar(r2cId, rowLength.toArray, arrowBuf.memoryAddress())
-                ColumnarBatches.create(handle)
+                  .nativeConvertRowToColumnar(
+                    executionCtxHandle,
+                    r2cHandle,
+                    rowLength.toArray,
+                    arrowBuf.memoryAddress())
+                ColumnarBatches.create(executionCtxHandle, handle)
               } finally {
                 arrowBuf.close()
                 arrowBuf = null
@@ -187,23 +190,7 @@ case class RowToVeloxColumnarExec(child: SparkPlan)
     }
   }
 
-  override def output: Seq[Attribute] = child.output
-
-  override def outputPartitioning: Partitioning = child.outputPartitioning
-
-  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
-
-  override def supportsColumnar: Boolean = true
-
   // For spark 3.2.
   protected def withNewChildInternal(newChild: SparkPlan): RowToVeloxColumnarExec =
     copy(child = newChild)
-
-  override def doExecute(): RDD[InternalRow] = {
-    child.execute()
-  }
-
-  override def doExecuteBroadcast[T](): broadcast.Broadcast[T] = {
-    child.executeBroadcast()
-  }
 }

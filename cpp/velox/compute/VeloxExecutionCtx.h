@@ -26,6 +26,7 @@
 #include "shuffle/ShuffleReader.h"
 #include "shuffle/ShuffleWriter.h"
 #include "shuffle/VeloxShuffleReader.h"
+#include "utils/ResourceMap.h"
 
 namespace gluten {
 
@@ -73,6 +74,8 @@ class VeloxExecutionCtx final : public ExecutionCtx {
   ResourceHandle addBatch(std::shared_ptr<ColumnarBatch> ptr) override;
   std::shared_ptr<ColumnarBatch> getBatch(ResourceHandle handle) override;
   void releaseBatch(ResourceHandle handle) override;
+  ResourceHandle select(MemoryManager* memoryManager, ResourceHandle batch, std::vector<int32_t> columnIndices)
+      override;
 
   ResourceHandle createRow2ColumnarConverter(MemoryManager* memoryManager, struct ArrowSchema* cSchema) override;
   std::shared_ptr<RowToColumnarConverter> getRow2ColumnarConverter(ResourceHandle handle) override;
@@ -86,7 +89,7 @@ class VeloxExecutionCtx final : public ExecutionCtx {
   std::shared_ptr<ShuffleWriter> getShuffleWriter(ResourceHandle handle) override;
   void releaseShuffleWriter(ResourceHandle handle) override;
 
-  std::shared_ptr<Metrics> getMetrics(ColumnarBatchIterator* rawIter, int64_t exportNanos) override {
+  Metrics* getMetrics(ColumnarBatchIterator* rawIter, int64_t exportNanos) override {
     auto iter = static_cast<WholeStageResultIterator*>(rawIter);
     return iter->getMetrics(exportNanos);
   }
@@ -101,18 +104,18 @@ class VeloxExecutionCtx final : public ExecutionCtx {
   ResourceHandle createShuffleReader(
       std::shared_ptr<arrow::Schema> schema,
       ReaderOptions options,
-      std::shared_ptr<arrow::MemoryPool> pool,
+      arrow::MemoryPool* pool,
       MemoryManager* memoryManager) override;
   std::shared_ptr<ShuffleReader> getShuffleReader(ResourceHandle handle) override;
   void releaseShuffleReader(ResourceHandle handle) override;
 
   std::unique_ptr<ColumnarBatchSerializer> createTempColumnarBatchSerializer(
       MemoryManager* memoryManager,
-      std::shared_ptr<arrow::MemoryPool> arrowPool,
+      arrow::MemoryPool* arrowPool,
       struct ArrowSchema* cSchema) override;
   ResourceHandle createColumnarBatchSerializer(
       MemoryManager* memoryManager,
-      std::shared_ptr<arrow::MemoryPool> arrowPool,
+      arrow::MemoryPool* arrowPool,
       struct ArrowSchema* cSchema) override;
   std::shared_ptr<ColumnarBatchSerializer> getColumnarBatchSerializer(ResourceHandle handle) override;
   void releaseColumnarBatchSerializer(ResourceHandle handle) override;
@@ -129,16 +132,15 @@ class VeloxExecutionCtx final : public ExecutionCtx {
       std::vector<facebook::velox::core::PlanNodeId>& streamIds);
 
  private:
-  ConcurrentMap<std::shared_ptr<ColumnarBatch>> columnarBatchHolder_;
-  ConcurrentMap<std::shared_ptr<Datasource>> datasourceHolder_;
-  ConcurrentMap<std::shared_ptr<ColumnarToRowConverter>> columnarToRowConverterHolder_;
-  ConcurrentMap<std::shared_ptr<ShuffleReader>> shuffleReaderHolder_;
-  ConcurrentMap<std::shared_ptr<ShuffleWriter>> shuffleWriterHolder_;
-  ConcurrentMap<std::shared_ptr<ColumnarBatchSerializer>> columnarBatchSerializerHolder_;
-  ConcurrentMap<std::shared_ptr<RowToColumnarConverter>> rowToColumnarConverterHolder_;
-  ConcurrentMap<std::shared_ptr<ResultIterator>> resultIteratorHolder_;
+  ResourceMap<std::shared_ptr<ColumnarBatch>> columnarBatchHolder_;
+  ResourceMap<std::shared_ptr<Datasource>> datasourceHolder_;
+  ResourceMap<std::shared_ptr<ColumnarToRowConverter>> columnarToRowConverterHolder_;
+  ResourceMap<std::shared_ptr<ShuffleReader>> shuffleReaderHolder_;
+  ResourceMap<std::shared_ptr<ShuffleWriter>> shuffleWriterHolder_;
+  ResourceMap<std::shared_ptr<ColumnarBatchSerializer>> columnarBatchSerializerHolder_;
+  ResourceMap<std::shared_ptr<RowToColumnarConverter>> rowToColumnarConverterHolder_;
+  ResourceMap<std::shared_ptr<ResultIterator>> resultIteratorHolder_;
 
-  std::vector<std::shared_ptr<ResultIterator>> inputIters_;
   std::shared_ptr<const facebook::velox::core::PlanNode> veloxPlan_;
 };
 

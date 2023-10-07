@@ -14,16 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.glutenproject.memory.memtarget.spark;
+package io.glutenproject.memory.memtarget;
 
-public interface Spiller {
-  Spiller NO_OP =
-      new Spiller() {
-        @Override
-        public long spill(long size) {
-          return 0L;
-        }
-      };
+import io.glutenproject.memory.MemoryUsageStatsBuilder;
+import io.glutenproject.memory.memtarget.spark.TreeMemoryConsumer;
 
-  long spill(long size);
+import java.util.Map;
+
+/** An abstract for both {@link TreeMemoryConsumer} and it's non-consumer children nodes. */
+public interface TreeMemoryTarget extends MemoryTarget, KnownNameAndStats {
+  long CAPACITY_UNLIMITED = Long.MAX_VALUE;
+
+  TreeMemoryTarget newChild(
+      String name,
+      long capacity,
+      Spiller spiller,
+      Map<String, MemoryUsageStatsBuilder> virtualChildren);
+
+  Map<String, TreeMemoryTarget> children();
+
+  TreeMemoryTarget parent();
+
+  Spiller getNodeSpiller();
 }

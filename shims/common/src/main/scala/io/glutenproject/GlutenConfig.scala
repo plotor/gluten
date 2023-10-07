@@ -81,6 +81,8 @@ class GlutenConfig(conf: SQLConf) extends Logging {
 
   def enableColumnarCoalesce: Boolean = conf.getConf(COLUMNAR_COALESCE_ENABLED)
 
+  def columnarTableCacheEnabled: Boolean = conf.getConf(COLUMNAR_TABLE_CACHE_ENABLED)
+
   // whether to use ColumnarShuffleManager
   def isUseColumnarShuffleManager: Boolean =
     conf
@@ -119,9 +121,9 @@ class GlutenConfig(conf: SQLConf) extends Logging {
 
   @deprecated def broadcastCacheTimeout: Int = conf.getConf(COLUMNAR_BROADCAST_CACHE_TIMEOUT)
 
-  def columnarShufflePreferSpill: Boolean = conf.getConf(COLUMNAR_SHUFFLE_PREFER_SPILL_ENABLED)
-
   def columnarShuffleWriteEOS: Boolean = conf.getConf(COLUMNAR_SHUFFLE_WRITE_EOS_ENABLED)
+
+  def columnarShuffleReallocThreshold: Double = conf.getConf(COLUMNAR_SHUFFLE_REALLOC_THRESHOLD)
 
   def columnarShuffleCodec: Option[String] = conf.getConf(COLUMNAR_SHUFFLE_CODEC)
 
@@ -226,6 +228,8 @@ class GlutenConfig(conf: SQLConf) extends Logging {
 
   def veloxSpillFileSystem: String = conf.getConf(COLUMNAR_VELOX_SPILL_FILE_SYSTEM)
 
+  def chColumnarShufflePreferSpill: Boolean = conf.getConf(COLUMNAR_CH_SHUFFLE_PREFER_SPILL_ENABLED)
+
   def chColumnarShuffleSpillThreshold: Long = conf.getConf(COLUMNAR_CH_SHUFFLE_SPILL_THRESHOLD)
 
   def chColumnarThrowIfMemoryExceed: Boolean = conf.getConf(COLUMNAR_CH_THROW_IF_MEMORY_EXCEED)
@@ -259,6 +263,7 @@ class GlutenConfig(conf: SQLConf) extends Logging {
   def taskPartitionId: Int = conf.getConf(BENCHMARK_TASK_PARTITIONID)
   def taskId: Long = conf.getConf(BENCHMARK_TASK_TASK_ID)
   def textInputMaxBlockSize: Long = conf.getConf(TEXT_INPUT_ROW_MAX_BLOCK_SIZE)
+  def textIputEmptyAsDefault: Boolean = conf.getConf(TEXT_INPUT_EMPTY_AS_DEFAULT)
   def enableParquetRowGroupMaxMinIndex: Boolean =
     conf.getConf(ENABLE_PARQUET_ROW_GROUP_MAX_MIN_INDEX)
 
@@ -280,6 +285,7 @@ object GlutenConfig {
   val GLUTEN_ENABLE_KEY = "spark.gluten.enabled"
   val GLUTEN_LIB_NAME = "spark.gluten.sql.columnar.libname"
   val GLUTEN_LIB_PATH = "spark.gluten.sql.columnar.libpath"
+  val GLUTEN_EXECUTOR_LIB_PATH = "spark.gluten.sql.columnar.executor.libpath"
 
   // Hive configurations.
   val SPARK_PREFIX = "spark."
@@ -701,6 +707,13 @@ object GlutenConfig {
       .booleanConf
       .createWithDefault(true)
 
+  val COLUMNAR_TABLE_CACHE_ENABLED =
+    buildConf("spark.gluten.sql.columnar.tableCache")
+      .internal()
+      .doc("Enable or disable columnar table cache.")
+      .booleanConf
+      .createWithDefault(true)
+
   val COLUMNAR_ITERATOR_ENABLED =
     buildConf("spark.gluten.sql.columnar.iterator")
       .internal()
@@ -758,21 +771,17 @@ object GlutenConfig {
       .intConf
       .createWithDefault(-1)
 
-  val COLUMNAR_SHUFFLE_PREFER_SPILL_ENABLED =
-    buildConf("spark.gluten.sql.columnar.shuffle.preferSpill")
-      .internal()
-      .doc(
-        "Whether to spill the partition buffers when buffers are full. " +
-          "If false, the partition buffers will be cached in memory first, " +
-          "and the cached buffers will be spilled when reach maximum memory.")
-      .booleanConf
-      .createWithDefault(false)
-
   val COLUMNAR_SHUFFLE_WRITE_EOS_ENABLED =
     buildConf("spark.gluten.sql.columnar.shuffle.writeEOS")
       .internal()
       .booleanConf
       .createWithDefault(true)
+
+  val COLUMNAR_SHUFFLE_REALLOC_THRESHOLD =
+    buildConf("spark.gluten.sql.columnar.shuffle.realloc.threshold")
+      .internal()
+      .doubleConf
+      .createWithDefault(0.25)
 
   val COLUMNAR_SHUFFLE_CODEC =
     buildConf("spark.gluten.sql.columnar.shuffle.codec")
@@ -1051,6 +1060,16 @@ object GlutenConfig {
       .checkValues(Set("local", "heap-over-local"))
       .createWithDefaultString("local")
 
+  val COLUMNAR_CH_SHUFFLE_PREFER_SPILL_ENABLED =
+    buildConf("spark.gluten.sql.columnar.backend.ch.shuffle.preferSpill")
+      .internal()
+      .doc(
+        "Whether to spill the partition buffers when buffers are full. " +
+          "If false, the partition buffers will be cached in memory first, " +
+          "and the cached buffers will be spilled when reach maximum memory.")
+      .booleanConf
+      .createWithDefault(false)
+
   val COLUMNAR_CH_SHUFFLE_SPILL_THRESHOLD =
     buildConf("spark.gluten.sql.columnar.backend.ch.spillThreshold")
       .internal()
@@ -1192,6 +1211,13 @@ object GlutenConfig {
       .doc("the max block size for text input rows")
       .longConf
       .createWithDefault(8192);
+
+  val TEXT_INPUT_EMPTY_AS_DEFAULT =
+    buildConf("spark.gluten.sql.text.input.empty.as.default")
+      .internal()
+      .doc("treat empty fields in CSV input as default values.")
+      .booleanConf
+      .createWithDefault(false);
 
   val ENABLE_PARQUET_ROW_GROUP_MAX_MIN_INDEX =
     buildConf("spark.gluten.sql.parquet.maxmin.index")

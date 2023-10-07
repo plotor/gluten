@@ -17,7 +17,6 @@
 
 #include "VeloxMemoryManager.h"
 
-#include <execinfo.h>
 #include "memory/ArrowMemoryPool.h"
 #include "utils/exception.h"
 
@@ -184,7 +183,7 @@ velox::memory::IMemoryManager::Options VeloxMemoryManager::getOptions(
   velox::memory::IMemoryManager::Options mmOptions{
       velox::memory::MemoryAllocator::kMaxAlignment,
       velox::memory::kMaxMemory, // the 1st capacity, Velox requires for a couple of different capacity numbers
-      true, // leak check
+      false, // leak check
       false, // debug
       veloxAlloc,
       [=]() { return std::make_unique<ListenableArbitrator>(arbitratorConfig, listener_.get()); },
@@ -199,7 +198,7 @@ VeloxMemoryManager::VeloxMemoryManager(
     std::unique_ptr<AllocationListener> listener)
     : MemoryManager(), name_(name), listener_(std::move(listener)) {
   glutenAlloc_ = std::make_unique<ListenableMemoryAllocator>(allocator.get(), listener_.get());
-  arrowPool_ = std::make_shared<ArrowMemoryPool>(glutenAlloc_.get());
+  arrowPool_ = std::make_unique<ArrowMemoryPool>(glutenAlloc_.get());
 
   auto options = getOptions(allocator);
   veloxMemoryManager_ = std::make_unique<velox::memory::MemoryManager>(options);

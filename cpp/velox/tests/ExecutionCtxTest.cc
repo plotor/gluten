@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include "compute/ExecutionCtx.h"
+#include "compute/VeloxExecutionCtx.h"
 
 #include <gtest/gtest.h>
 
@@ -77,8 +77,9 @@ class DummyExecutionCtx final : public ExecutionCtx {
     return std::shared_ptr<ShuffleWriter>();
   }
   void releaseShuffleWriter(ResourceHandle handle) override {}
-  std::shared_ptr<Metrics> getMetrics(ColumnarBatchIterator* rawIter, int64_t exportNanos) override {
-    return std::shared_ptr<Metrics>();
+  Metrics* getMetrics(ColumnarBatchIterator* rawIter, int64_t exportNanos) override {
+    static Metrics m(1);
+    return &m;
   }
   ResourceHandle createDatasource(
       const std::string& filePath,
@@ -93,7 +94,7 @@ class DummyExecutionCtx final : public ExecutionCtx {
   ResourceHandle createShuffleReader(
       std::shared_ptr<arrow::Schema> schema,
       ReaderOptions options,
-      std::shared_ptr<arrow::MemoryPool> pool,
+      arrow::MemoryPool* pool,
       MemoryManager* memoryManager) override {
     return kInvalidResourceHandle;
   }
@@ -103,13 +104,13 @@ class DummyExecutionCtx final : public ExecutionCtx {
   void releaseShuffleReader(ResourceHandle handle) override {}
   ResourceHandle createColumnarBatchSerializer(
       MemoryManager* memoryManager,
-      std::shared_ptr<arrow::MemoryPool> arrowPool,
+      arrow::MemoryPool* arrowPool,
       struct ArrowSchema* cSchema) override {
     return kInvalidResourceHandle;
   }
   std::unique_ptr<ColumnarBatchSerializer> createTempColumnarBatchSerializer(
       MemoryManager* memoryManager,
-      std::shared_ptr<arrow::MemoryPool> arrowPool,
+      arrow::MemoryPool* arrowPool,
       struct ArrowSchema* cSchema) override {
     return std::unique_ptr<ColumnarBatchSerializer>();
   }
@@ -117,9 +118,12 @@ class DummyExecutionCtx final : public ExecutionCtx {
     return std::shared_ptr<ColumnarBatchSerializer>();
   }
   void releaseColumnarBatchSerializer(ResourceHandle handle) override {}
+  ResourceHandle select(MemoryManager*, ResourceHandle, std::vector<int32_t>) override {
+    return kInvalidResourceHandle;
+  }
 
  private:
-  ConcurrentMap<std::shared_ptr<ResultIterator>> resultIteratorHolder_;
+  ResourceMap<std::shared_ptr<ResultIterator>> resultIteratorHolder_;
 
   class DummyResultIterator : public ColumnarBatchIterator {
    public:

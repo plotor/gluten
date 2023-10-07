@@ -478,6 +478,60 @@ core::PlanNodePtr SubstraitToVeloxPlanConverter::toVeloxPlan(const ::substrait::
   return std::make_shared<core::ExpandNode>(nextPlanNodeId(), projectSetExprs, std::move(names), childNode);
 }
 
+core::PlanNodePtr SubstraitToVeloxPlanConverter::toVeloxPlan(const ::substrait::GenerateRel& generateRel) {
+  core::PlanNodePtr childNode;
+  if (generateRel.has_input()) {
+    childNode = toVeloxPlan(generateRel.input());
+  } else {
+    VELOX_FAIL("Child Rel is expected in GenerateRel.");
+  }
+  const auto& inputType = childNode->outputType();
+
+  std::vector<core::FieldAccessTypedExprPtr> replicated;
+  std::vector<core::FieldAccessTypedExprPtr> unnest;
+  // TODO(yuan): get from generator output
+  std::vector<std::string> unnestNames = {"C0"};
+
+  const auto& generator = generateRel.generator();
+  const auto& requiredChildOutput = generateRel.child_output();
+  const bool& outer = generateRel.outer();
+
+  replicated.reserve(requiredChildOutput.size());
+  for (const auto& output : requiredChildOutput) {
+    auto expression = exprConverter_->toVeloxExpr(output, inputType);
+    auto expr_field = dynamic_cast<const core::FieldAccessTypedExpr*>(expression.get());
+    VELOX_CHECK(expr_field != nullptr, " the output in Generate Operator only support field")
+
+    replicated.emplace_back(std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expression));
+  }
+
+  auto projNode = std::dynamic_pointer_cast<const core::ProjectNode>(childNode);
+
+  if (projNode != nullptr && projNode->names().size() > requiredChildOutput.size()) {
+    // generator is a scalarfunction node -> explode(array(col, 'all'))
+    // use the last one, this is ensure by scala code
+    auto innerName = projNode->names().back();
+    auto innerExpr = projNode->projections().back();
+
+    auto innerType = innerExpr->type();
+    auto unnestFieldExpr = std::make_shared<core::FieldAccessTypedExpr>(innerType, innerName);
+    VELOX_CHECK_NOT_NULL(unnestFieldExpr, " the key in unnest Operator only support field");
+    unnest.emplace_back(unnestFieldExpr);
+  } else {
+    // generator should be a array column -> explode(col)
+    auto explodeFunc = generator.scalar_function();
+    auto unnestExpr = exprConverter_->toVeloxExpr(explodeFunc.arguments(0).value(), inputType);
+    auto unnestFieldExpr = std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(unnestExpr);
+    VELOX_CHECK_NOT_NULL(unnestFieldExpr, " the key in unnest Operator only support field");
+    unnest.emplace_back(unnestFieldExpr);
+  }
+
+  auto node = std::make_shared<core::UnnestNode>(
+      nextPlanNodeId(), replicated, unnest, std::move(unnestNames), std::nullopt, childNode);
+
+  return node;
+}
+
 const core::WindowNode::Frame createWindowFrame(
     const ::substrait::Expression_WindowFunction_Bound& lower_bound,
     const ::substrait::Expression_WindowFunction_Bound& upper_bound,
@@ -755,6 +809,9 @@ core::PlanNodePtr SubstraitToVeloxPlanConverter::toVeloxPlan(const ::substrait::
         case SubstraitFileFormatCase::kParquet:
           splitInfo->format = dwio::common::FileFormat::PARQUET;
           break;
+        case SubstraitFileFormatCase::kText:
+          splitInfo->format = dwio::common::FileFormat::TEXT;
+          break;
         default:
           splitInfo->format = dwio::common::FileFormat::UNKNOWN;
           break;
@@ -911,6 +968,8 @@ core::PlanNodePtr SubstraitToVeloxPlanConverter::toVeloxPlan(const ::substrait::
     return toVeloxPlan(rel.sort());
   } else if (rel.has_expand()) {
     return toVeloxPlan(rel.expand());
+  } else if (rel.has_generate()) {
+    return toVeloxPlan(rel.generate());
   } else if (rel.has_fetch()) {
     return toVeloxPlan(rel.fetch());
   } else if (rel.has_window()) {

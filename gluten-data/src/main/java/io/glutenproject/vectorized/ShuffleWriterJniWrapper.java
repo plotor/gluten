@@ -16,13 +16,28 @@
  */
 package io.glutenproject.vectorized;
 
+import io.glutenproject.exec.ExecutionCtx;
+import io.glutenproject.exec.ExecutionCtxAware;
+import io.glutenproject.exec.ExecutionCtxs;
 import io.glutenproject.init.JniInitialized;
 
 import java.io.IOException;
 
-public class ShuffleWriterJniWrapper extends JniInitialized {
+public class ShuffleWriterJniWrapper extends JniInitialized implements ExecutionCtxAware {
+  private final ExecutionCtx ctx;
 
-  public ShuffleWriterJniWrapper() {}
+  private ShuffleWriterJniWrapper(ExecutionCtx ctx) {
+    this.ctx = ctx;
+  }
+
+  public static ShuffleWriterJniWrapper create() {
+    return new ShuffleWriterJniWrapper(ExecutionCtxs.contextInstance());
+  }
+
+  @Override
+  public long ctxHandle() {
+    return ctx.getHandle();
+  }
 
   /**
    * Construct native shuffle writer for shuffled RecordBatch over
@@ -34,12 +49,10 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
    * @param dataFile acquired from spark IndexShuffleBlockResolver
    * @param subDirsPerLocalDir SparkConf spark.diskStore.subDirectories
    * @param localDirs configured local directories where Spark can write files
-   * @param preferEvict if true, write the partition buffer to disk once it is full
    * @return native shuffle writer instance handle if created successfully.
    */
   public long make(
       NativePartitioning part,
-      long offheapPerTask,
       int bufferSize,
       String codec,
       String codecBackend,
@@ -48,16 +61,14 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
       String dataFile,
       int subDirsPerLocalDir,
       String localDirs,
-      boolean preferEvict,
-      long executionCtxHandle,
       long memoryManagerHandle,
       boolean writeEOS,
+      double reallocThreshold,
       long handle,
       long taskAttemptId) {
     return nativeMake(
         part.getShortName(),
         part.getNumPartitions(),
-        offheapPerTask,
         bufferSize,
         codec,
         codecBackend,
@@ -66,10 +77,9 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
         dataFile,
         subDirsPerLocalDir,
         localDirs,
-        preferEvict,
-        executionCtxHandle,
         memoryManagerHandle,
         writeEOS,
+        reallocThreshold,
         handle,
         taskAttemptId,
         0,
@@ -87,22 +97,20 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
    */
   public long makeForRSS(
       NativePartitioning part,
-      long offheapPerTask,
       int bufferSize,
       String codec,
       int bufferCompressThreshold,
       String compressionMode,
       int pushBufferMaxSize,
       Object pusher,
-      long executionCtxHandle,
       long memoryManagerHandle,
       long handle,
       long taskAttemptId,
-      String partitionWriterType) {
+      String partitionWriterType,
+      double reallocThreshold) {
     return nativeMake(
         part.getShortName(),
         part.getNumPartitions(),
-        offheapPerTask,
         bufferSize,
         codec,
         null,
@@ -111,10 +119,9 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
         null,
         0,
         null,
-        true,
-        executionCtxHandle,
         memoryManagerHandle,
         true,
+        reallocThreshold,
         handle,
         taskAttemptId,
         pushBufferMaxSize,
@@ -125,7 +132,6 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
   public native long nativeMake(
       String shortName,
       int numPartitions,
-      long offheapPerTask,
       int bufferSize,
       String codec,
       String codecBackend,
@@ -134,10 +140,9 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
       String dataFile,
       int subDirsPerLocalDir,
       String localDirs,
-      boolean preferEvict,
-      long executionCtxHandle,
       long memoryManagerHandle,
       boolean writeEOS,
+      double reallocThreshold,
       long handle,
       long taskAttemptId,
       int pushBufferMaxSize,
@@ -153,8 +158,7 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
    *     off-heap memory due to allocations from the evaluator itself
    * @return actual spilled size
    */
-  public native long nativeEvict(
-      long executionCtxHandle, long shuffleWriterHandle, long size, boolean callBySelf)
+  public native long nativeEvict(long shuffleWriterHandle, long size, boolean callBySelf)
       throws RuntimeException;
 
   /**
@@ -164,11 +168,11 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
    * @param shuffleWriterHandle shuffle writer instance handle
    * @param numRows Rows per batch
    * @param handler handler of Velox Vector
+   * @param memLimit memory usage limit for the split operation FIXME setting a cap to pool /
+   *     allocator instead
    * @return batch bytes.
    */
-  public native long split(
-      long executionCtxHandle, long shuffleWriterHandle, int numRows, long handler)
-      throws IOException;
+  public native long split(long shuffleWriterHandle, int numRows, long handler, long memLimit);
 
   /**
    * Write the data remained in the buffers hold by native shuffle writer to each partition's
@@ -177,13 +181,12 @@ public class ShuffleWriterJniWrapper extends JniInitialized {
    * @param shuffleWriterHandle shuffle writer instance handle
    * @return GlutenSplitResult
    */
-  public native GlutenSplitResult stop(long executionCtxHandle, long shuffleWriterHandle)
-      throws IOException;
+  public native GlutenSplitResult stop(long shuffleWriterHandle) throws IOException;
 
   /**
    * Release resources associated with designated shuffle writer instance.
    *
    * @param shuffleWriterHandle shuffle writer instance handle
    */
-  public native void close(long executionCtxHandle, long shuffleWriterHandle);
+  public native void close(long shuffleWriterHandle);
 }

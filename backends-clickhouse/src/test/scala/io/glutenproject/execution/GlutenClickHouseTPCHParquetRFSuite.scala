@@ -14,25 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.glutenproject.memory.memtarget.spark;
+package io.glutenproject.execution
 
-import io.glutenproject.memory.MemoryUsageStatsBuilder;
+import org.apache.spark.SparkConf
 
-import java.util.Map;
-
-/** An abstract for both {@link TreeMemoryConsumer} and it's non-consumer children nodes. */
-public interface TreeMemoryConsumerNode extends TaskMemoryTarget {
-  long CAPACITY_UNLIMITED = Long.MAX_VALUE;
-
-  TreeMemoryConsumerNode newChild(
-      String name,
-      long capacity,
-      Spiller spiller,
-      Map<String, MemoryUsageStatsBuilder> virtualChildren);
-
-  Map<String, TreeMemoryConsumerNode> children();
-
-  TreeMemoryConsumerNode parent();
-
-  Spiller getNodeSpiller();
+class GlutenClickHouseTPCHParquetRFSuite extends GlutenClickHouseTPCHParquetSuite {
+  override protected def sparkConf: SparkConf = {
+    super.sparkConf
+      // radically small threshold to force runtime bloom filter
+      .set("spark.sql.optimizer.runtime.bloomFilter.applicationSideScanSizeThreshold", "1KB")
+      .set("spark.sql.optimizer.runtime.bloomFilter.enabled", "true")
+  }
 }

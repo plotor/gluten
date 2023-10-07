@@ -20,6 +20,7 @@
 #include "shuffle/Partitioner.h"
 
 namespace gluten {
+
 class RoundRobinPartitioner final : public ShuffleWriter::Partitioner {
  public:
   RoundRobinPartitioner(int32_t numPartitions, bool hasPid) : Partitioner(numPartitions, hasPid) {}
@@ -31,6 +32,8 @@ class RoundRobinPartitioner final : public ShuffleWriter::Partitioner {
       std::vector<uint32_t>& partition2RowCount) override;
 
  private:
+  friend class RoundRobinPartitionerTest;
+
   int32_t pidSelection_ = 0;
 };
 
